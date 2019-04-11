@@ -1,3 +1,5 @@
 *.img
 *.img.gz
 *.img.bmap
+u-boot.bin
+2-FullDebian/overlays/u-boot/

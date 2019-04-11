@@ -1,0 +1,70 @@
+architecture: arm64
+
+actions:
+  - action: debootstrap
+    suite: sid
+    components:
+      - main
+    mirror: https://deb.debian.org/debian
+    variant: minbase
+
+  - action: apt
+    packages: [ sudo, adduser, systemd-sysv, initramfs-tools, u-boot-tools, u-boot-menu, util-linux ]
+
+  - action: run
+    chroot: true
+    command: echo debian-sid-arm64 > /etc/hostname
+
+  - action: run
+    chroot: true
+    command: echo "127.0.1.1\tdebian-sid-arm64" >> /etc/hosts
+
+  - action: overlay
+    source: overlays/etc
+    destination: /etc
+
+  - action: run
+    chroot: true
+    script: scripts/setup-user.sh
+
+  - action: apt
+    packages: [ linux-image-arm64, u-boot-amlogic ]
+
+  - action: image-partition
+    imagename: debian-sid-arm64.img
+    imagesize: 1GB
+    partitiontype: msdos
+    mountpoints:
+      - mountpoint: /
+        partition: root
+    partitions:
+      - name: root
+        fs: ext4
+        start: 2MB
+        end: 100%
+        flags: [ boot ]
+
+  - action: filesystem-deploy
+    description: Deploying filesystem onto image
+
+  # Update U-Boot menu after creation of image partitions and filesystem
+  # deployment to get correct root information from /etc/fstab
+  - action: run
+    description: Update U-Boot menu
+    chroot: true
+    command: u-boot-update
+
+  - action: run
+    description: Create block map file
+    postprocess: true
+    command: bmaptool create debian-sid-arm64.img > debian-sid-arm64.img.bmap
+
+  - action: run
+    description: Compressing final image
+    postprocess: true
+    command: gzip -f debian-sid-arm64.img
+
+  - action: run
+    description: Extract bootloader u-boot.bin
+    chroot: false
+    command: cp ${ROOTDIR}/usr/lib/u-boot/libretech-cc/u-boot.bin ${ARTIFACTDIR}/u-boot.bin
